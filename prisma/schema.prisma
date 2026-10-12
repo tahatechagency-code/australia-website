@@ -1,0 +1,131 @@
+// Prisma schema for Ariana Gems & Jewellery
+// Datasource: PostgreSQL
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Product {
+  id          String   @id
+  name        String
+  latin       String
+  category    String
+  price       Int
+  compareAt   Int?
+  description  String
+  surface     String   @default("gold")
+  image       String
+  tags        String[] @default([])
+  bestSeller  Boolean  @default(false)
+  newArrival  Boolean  @default(false)
+  rating      Float    @default(5)
+  reviews     Int      @default(0)
+  // Admin-controlled gold specs. Empty/null → the product page shows N/A.
+  karats      String[] @default([])
+  goldWeight  Float?
+  totalWeight Float?
+  createdAt   DateTime @default(now())
+
+  orderItems  OrderItem[]
+
+  @@index([category])
+}
+
+model Customer {
+  id     String   @id
+  name   String
+  email  String
+  orders Int      @default(0)
+  spent  Int      @default(0)
+  joined String
+}
+
+model Order {
+  id         String      @id
+  customer   String
+  email      String
+  total      Int
+  status     String      @default("paid")
+  date       String
+  items      Int         @default(0)
+  couponCode String?
+  discount   Int         @default(0)
+  /// The account that placed the order (null for guest checkout) — lets
+  /// "My Orders" show only the signed-in customer's own history.
+  userId     String?
+  createdAt  DateTime    @default(now())
+
+  lines      OrderItem[]
+
+  @@index([createdAt])
+  @@index([userId])
+}
+
+model OrderItem {
+  id        String  @id @default(cuid())
+  orderId   String
+  productId String
+  name      String
+  price     Int
+  quantity  Int
+
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product   Product @relation(fields: [productId], references: [id])
+
+  @@index([orderId])
+}
+
+model User {
+  id        String   @id
+  name      String
+  email     String   @unique
+  salt      String
+  hash      String
+  role      String   @default("customer")
+  createdAt DateTime @default(now())
+
+  sessions  Session[]
+}
+
+model Session {
+  token     String    @id
+  userId    String
+  createdAt DateTime  @default(now())
+  /// Absolute expiry. A session is rejected (and cleaned up) once past this.
+  expiresAt DateTime?
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Newsletter {
+  email     String   @id
+  createdAt DateTime @default(now())
+}
+
+model ContactMessage {
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  message   String
+  createdAt DateTime @default(now())
+}
+
+model Coupon {
+  code         String    @id
+  description  String
+  discountType String    @default("percent") // "percent" | "fixed"
+  value        Int // percent (1-100) or fixed AUD amount, per discountType
+  minSubtotal  Int       @default(0)
+  maxUses      Int? // null = unlimited
+  usedCount    Int       @default(0)
+  active       Boolean   @default(true)
+  expiresAt    DateTime?
+  createdAt    DateTime  @default(now())
+}
